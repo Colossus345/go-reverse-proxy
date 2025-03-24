@@ -16,6 +16,7 @@ var upgrader = websocket.Upgrader{
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
+	log.Println("RECEIVED")
 	fmt.Fprintf(w, "home page")
 }
 func wsEndPoint(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +115,7 @@ func main() {
 		log.Fatal("No type specified")
 	}
 	switch os.Args[1] {
-	case "http","ws":
+	case "http", "ws":
 		{
 			httpConn()
 		}

@@ -34,7 +34,7 @@ func main() {
 	}
 }
 func htp() {
-    req, err := http.NewRequest(http.MethodGet, "http://localhost:8080", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://localhost:3000/", nil)
 	if err != nil {
 		log.Fatalf("cant do request %s", err)
 	}
@@ -50,11 +50,11 @@ func htp() {
 	if err != nil {
 		log.Fatal("cliient: could not read body:", err)
 	}
-	log.Println("Body:",string(resBody))
+	log.Println("Body:", string(resBody))
 
 }
 func tcpConn() {
-	tcpAddr, err := net.ResolveTCPAddr("tcp4", ":8080")
+	tcpAddr, err := net.ResolveTCPAddr("tcp4", ":3000")
 
 	if err != nil {
 		fmt.Println(err)
@@ -87,7 +87,7 @@ func tcpConn() {
 	fmt.Print("> ", string(data))
 }
 func udpConn() {
-	udpAddr, err := net.ResolveUDPAddr("udp", ":8080")
+	udpAddr, err := net.ResolveUDPAddr("udp", ":3000")
 
 	if err != nil {
 		fmt.Println(err)
@@ -121,7 +121,7 @@ func udpConn() {
 	fmt.Print("> ", string(data))
 }
 func ws() {
-	url := "ws://localhost:8080/ws"
+	url := "ws://localhost:3000/ws"
 	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		log.Fatal(err)
