@@ -80,7 +80,7 @@ func handleConn(conn net.Conn) {
 	}
 }
 func udpConn() {
-	udpAddr, err := net.ResolveUDPAddr("udp", ":8080")
+	udpAddr, err := net.ResolveUDPAddr("udp", "localhost:8080")
 
 	if err != nil {
 		fmt.Println(err)
@@ -94,6 +94,7 @@ func udpConn() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	log.Println("addr: ", udpAddr)
 
 	// Read from UDP listener in endless loop
 	for {
@@ -103,9 +104,7 @@ func udpConn() {
 			fmt.Println(err)
 			return
 		}
-
 		fmt.Print("> ", string(buf[0:]))
-
 		conn.WriteToUDP(buf[0:], addr)
 	}
 }

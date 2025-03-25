@@ -136,7 +136,7 @@ func ws() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Fatal(string(msg))
+		log.Println(string(msg))
 
 	}
 }
