@@ -2,8 +2,8 @@ package connectionhandler
 
 import (
 	"fmt"
-	"go-reverse-proxy/internal/config"
-	"go-reverse-proxy/internal/pipeline"
+	"github.com/Colossus345/go-reverse-proxy/internal/config"
+	"github.com/Colossus345/go-reverse-proxy/internal/pipeline"
 	"io"
 	"log"
 	"net"

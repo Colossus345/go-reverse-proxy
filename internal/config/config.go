@@ -1,6 +1,6 @@
 package config
 
-import "go-reverse-proxy/internal/pipeline"
+import "github.com/Colossus345/go-reverse-proxy/internal/pipeline"
 
 const (
 	TCP  Protocol = "TCP"

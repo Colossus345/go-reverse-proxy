@@ -1,4 +1,4 @@
-module go-reverse-proxy
+module github.com/Colossus345/go-reverse-proxy
 
 go 1.24.1
 
