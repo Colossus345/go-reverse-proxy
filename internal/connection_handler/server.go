@@ -3,6 +3,7 @@ package connectionhandler
 import (
 	"fmt"
 	"go-reverse-proxy/internal/config"
+	"go-reverse-proxy/internal/pipeline"
 	"io"
 	"log"
 	"net"
@@ -20,21 +21,24 @@ type Connection struct {
 
 func SetupServer(c *config.Config) {
 	tcp := Server{
-		remote:      c.RemoteAddrs,
-		listen_addr: c.ListenAddr,
-		Type:        config.UDP,
+		remote:          c.Servers[0].RemoteAddrs,
+		listen_addr:     c.Servers[0].ListenAddr,
+		Type:            config.TCP,
+		in_middlewares:  c.Servers[0].InboundMiddleware,
+		out_middlewares: c.Servers[0].OutboundMiddleware,
 	}
 	tcp.Run()
 }
 
 type Server struct {
-	Type        config.Protocol
-	listen_addr string
-	remote      []string
+	Type            config.Protocol
+	listen_addr     string
+	remote          []string
+	in_middlewares  *pipeline.Pipeline
+	out_middlewares *pipeline.Pipeline
 }
 
 func (t *Server) RunUDP() error {
-
 	udpAddr, err := net.ResolveUDPAddr("udp", t.listen_addr)
 	if err != nil {
 		fmt.Println(err)
@@ -123,6 +127,7 @@ func (t *Server) RunTCP() error {
 }
 
 func (t *Server) Run() error {
+	log.Println(t.Type)
 	switch t.Type {
 	case config.UDP:
 		return t.RunUDP()
@@ -157,6 +162,13 @@ func (t *Server) handleConnection(c Connection) {
 		for {
 			n, err := conn.Read(buf)
 			log.Println(string(buf[:n]))
+			if t.in_middlewares != nil {
+				s, err := t.in_middlewares.Exec(string(buf[:n]), "")
+				if err != nil {
+					panic(err)
+				}
+				copy(buf,[]byte(s))
+			}
 			if err != nil {
 				close(in_chan)
 				done <- struct{}{}
@@ -169,6 +181,13 @@ func (t *Server) handleConnection(c Connection) {
 		buf := make([]byte, 2048)
 		for {
 			n, err := remote.Read(buf)
+			if t.out_middlewares != nil {
+				s, err := t.out_middlewares.Exec(string(buf[:n]), "")
+				if err != nil {
+					panic(err)
+				}
+				copy(buf,[]byte(s))
+			}
 			log.Println(string(buf[:n]))
 			if err != nil {
 				close(out_chan)

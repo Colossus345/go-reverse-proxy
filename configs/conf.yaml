@@ -1,0 +1,25 @@
+app:
+  name1:
+    proto: UDP
+    port: 3000
+    address: "0.0.0.0"
+    inbound_middleware:
+      - "middlewares/log.log"
+    outbound_middleware:
+      - "middlewares/log.log"
+  name4:
+    proto: TCP
+  name2:
+    proto: TCP
+    port: 3001
+    outbound_middleware:
+      - "middlewares/log.log"
+      - "middlewares/log.log"
+  name3:
+    proto: WS
+    port: 3002
+    address: "0.0.0.0"
+    inbound_middleware:
+      - "middlewares/log.log"
+      - "middlewares/log.log"
+      - "middlewares/log.log"

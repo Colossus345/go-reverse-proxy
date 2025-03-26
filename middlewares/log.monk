@@ -1,0 +1,12 @@
+
+if (len(__args__) == 0){
+    puts("NOT ENOUGHH")
+    return "NOT ENOUGhH ARGS"
+}
+
+let msg = __args__[0]
+puts("OLO ",msg)
+
+fputs("log.log",msg);
+
+return msg;

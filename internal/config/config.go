@@ -1,5 +1,7 @@
 package config
 
+import "go-reverse-proxy/internal/pipeline"
+
 const (
 	TCP  Protocol = "TCP"
 	UDP  Protocol = "UPD"
@@ -9,16 +11,30 @@ const (
 
 type Protocol string
 
+type Server struct {
+	ListenAddr         string
+	Proto              Protocol
+	InboundMiddleware  *pipeline.Pipeline
+	OutboundMiddleware *pipeline.Pipeline
+	RemoteAddrs        []string
+}
+
 type Config struct {
-	ListenAddr  string
-	Protocols   []Protocol
-	RemoteAddrs []string
+	Servers []Server
 }
 
 func NewConfig() *Config {
+	in, err := pipeline.New([]string{"middlewares/log.monk"})
+	if err != nil {
+		panic(err)
+	}
+	out, err := pipeline.New([]string{"middlewares/log.monk"})
+	if err != nil {
+		panic(err)
+	}
 	return &Config{
-		ListenAddr:  "localhost:3000",
-		RemoteAddrs: []string{"localhost:8080"},
-		Protocols:   []Protocol{TCP, UDP},
+		Servers: []Server{{ListenAddr: "localhost:3000",
+			RemoteAddrs: []string{"localhost:8080"},
+			Proto:       TCP, InboundMiddleware: in, OutboundMiddleware: out}},
 	}
 }
