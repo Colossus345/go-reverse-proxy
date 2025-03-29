@@ -1,0 +1,8 @@
+servers:
+  - listen_addr: "localhost:8080"
+    protocol: "tcp"
+    remote_addr: "localhost:3000"
+  
+  - listen_addr: "localhost:8081"
+    protocol: "udp"
+    remote_addr: "localhost:3001" 

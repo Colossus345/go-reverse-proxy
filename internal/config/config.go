@@ -1,40 +1,52 @@
 package config
 
-import "github.com/Colossus345/go-reverse-proxy/internal/pipeline"
+import (
+	"fmt"
+	"os"
 
-const (
-	TCP  Protocol = "TCP"
-	UDP  Protocol = "UPD"
-	WS   Protocol = "WS"
-	HTTP Protocol = "HTTP"
+	"gopkg.in/yaml.v3"
 )
 
 type Protocol string
 
-type Server struct {
-	ListenAddr         string
-	Proto              Protocol
-	InboundMiddleware  *pipeline.Pipeline
-	OutboundMiddleware *pipeline.Pipeline
-	RemoteAddrs        []string
+const (
+	TCP Protocol = "tcp"
+	UDP Protocol = "udp"
+)
+
+type ServerConfig struct {
+	ListenAddr string   `yaml:"listen_addr"`
+	Protocol   Protocol `yaml:"protocol"`
+	RemoteAddr string   `yaml:"remote_addr"`
 }
 
 type Config struct {
-	Servers []Server
+	Servers []ServerConfig `yaml:"servers"`
 }
 
-func NewConfig() *Config {
-	in, err := pipeline.New([]string{"middlewares/log.monk"})
+func LoadConfig(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("error reading config file: %w", err)
 	}
-	out, err := pipeline.New([]string{"middlewares/log.monk"})
-	if err != nil {
-		panic(err)
+
+	var config Config
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("error parsing config file: %w", err)
 	}
-	return &Config{
-		Servers: []Server{{ListenAddr: "localhost:3000",
-			RemoteAddrs: []string{"localhost:8080"},
-			Proto:       TCP, InboundMiddleware: in, OutboundMiddleware: out}},
+
+	// Validate configuration
+	for _, server := range config.Servers {
+		if server.Protocol != TCP && server.Protocol != UDP {
+			return nil, fmt.Errorf("unsupported protocol: %s", server.Protocol)
+		}
+		if server.ListenAddr == "" {
+			return nil, fmt.Errorf("listen_addr is required")
+		}
+		if server.RemoteAddr == "" {
+			return nil, fmt.Errorf("remote_addr is required")
+		}
 	}
+
+	return &config, nil
 }
