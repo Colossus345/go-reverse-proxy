@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package echo;
+
+option go_package = "github.com/Colossus345/go-reverse-proxy/internal/proto";
+
+// Echo service with different types of RPCs
+service Echo {
+  // Unary RPC
+  rpc UnaryEcho(EchoRequest) returns (EchoResponse) {}
+  
+  // Server streaming RPC
+  rpc ServerStreamEcho(EchoRequest) returns (stream EchoResponse) {}
+  
+  // Client streaming RPC
+  rpc ClientStreamEcho(stream EchoRequest) returns (EchoResponse) {}
+  
+  // Bidirectional streaming RPC
+  rpc BidirectionalStreamEcho(stream EchoRequest) returns (stream EchoResponse) {}
+}
+
+message EchoRequest {
+  string message = 1;
+}
+
+message EchoResponse {
+  string message = 1;
+} 

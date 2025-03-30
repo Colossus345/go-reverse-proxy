@@ -1,4 +1,3 @@
-
 all:
 	go run cmd/server/server.go udp & echo "$$!" >server.pid
 
@@ -23,3 +22,21 @@ stop:
 	cat proxy.pid | xargs kill  
 	rm server.pid
 	rm proxy.pid
+
+.PHONY: proto
+proto:
+	protoc --go_out=. --go_opt=paths=source_relative \
+		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+		internal/proto/echo.proto
+
+.PHONY: test
+test:
+	go test -v ./... 
+
+.PHONY: build
+build:
+	go build -o bin/proxy cmd/main.go
+
+.PHONY: run
+run: build
+	./bin/proxy -config configs/config.yaml

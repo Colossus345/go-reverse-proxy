@@ -1,8 +1,35 @@
 servers:
   - listen_addr: "localhost:8080"
     protocol: "tcp"
-    remote_addr: "localhost:3000"
+    remote_addrs:
+      - "localhost:3000"
+      - "localhost:3001"
+    load_balancing_strategy: "round_robin"
   
   - listen_addr: "localhost:8081"
     protocol: "udp"
-    remote_addr: "localhost:3001" 
+    remote_addrs:
+      - "localhost:3002"
+      - "localhost:3003"
+    load_balancing_strategy: "random"
+  
+  - listen_addr: "localhost:8082"
+    protocol: "http"
+    remote_addrs:
+      - "http://localhost:3004"
+      - "http://localhost:3005"
+    load_balancing_strategy: "round_robin"
+  
+  - listen_addr: "localhost:8083"
+    protocol: "ws"
+    remote_addrs:
+      - "ws://localhost:3006"
+      - "ws://localhost:3007"
+    load_balancing_strategy: "round_robin"
+  
+  - listen_addr: "localhost:8084"
+    protocol: "grpc"
+    remote_addrs:
+      - "localhost:3008"
+      - "localhost:3009"
+    load_balancing_strategy: "round_robin" 
