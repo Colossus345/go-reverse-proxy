@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Colossus345/go-reverse-proxy/internal/config"
+	"github.com/Colossus345/go-reverse-proxy/internal/middleware"
 )
 
 type Proxy struct {
@@ -27,10 +28,12 @@ type Proxy struct {
 }
 
 type server struct {
-	listener net.Listener
-	udpConn  *net.UDPConn
-	protocol config.Protocol
-	addr     string
+	listener                  net.Listener
+	udpConn                   *net.UDPConn
+	protocol                  config.Protocol
+	addr                      string
+	ClientToRemoteMiddlewares []middleware.Middleware
+	RemoteToClientMiddlewares []middleware.Middleware
 }
 
 func New(config *config.Config) *Proxy {
@@ -112,10 +115,24 @@ func (p *Proxy) Shutdown() error {
 func (p *Proxy) startServer(serverConfig config.ServerConfig) (*server, error) {
 	selector := config.NewRemoteAddrSelector(serverConfig.RemoteAddrs, serverConfig.LoadBalancingStrategy)
 
+	// Initialize middlewares
+	inboundMiddlewares := make([]middleware.Middleware, 0, len(serverConfig.InboundMiddlewares))
+	log.Println("INBOUND MIDDLEWARES", serverConfig.InboundMiddlewares)
+	mw, _:= middleware.New(serverConfig.InboundMiddlewares)
+	inboundMiddlewares = append(inboundMiddlewares, mw)
+
+	outboundMiddlewares := make([]middleware.Middleware, 0, len(serverConfig.OutboundMiddlewares))
+	mw, _= middleware.New(serverConfig.OutboundMiddlewares)
+	log.Println("outbOUND MIDDLEWARES", serverConfig.OutboundMiddlewares)
+	outboundMiddlewares = append(outboundMiddlewares, mw)
+
 	s := &server{
-		protocol: serverConfig.Protocol,
-		addr:     serverConfig.ListenAddr,
+		protocol:                  serverConfig.Protocol,
+		addr:                      serverConfig.ListenAddr,
+		ClientToRemoteMiddlewares: outboundMiddlewares,
+		RemoteToClientMiddlewares: inboundMiddlewares,
 	}
+	log.Println(s, "SERVER")
 
 	// All protocols are handled at the transport level
 	switch serverConfig.Protocol {
@@ -143,12 +160,11 @@ func (p *Proxy) startServer(serverConfig config.ServerConfig) (*server, error) {
 						}
 						continue
 					}
-					log.Println("ACCEPTED", conn.RemoteAddr())
 
 					p.shutdownWg.Add(1)
 					go func() {
 						defer p.shutdownWg.Done()
-						p.handleTCPConnection(p.ctx, conn, selector)
+						s.handleTCPConnection(p.ctx, conn, selector)
 					}()
 				}
 			}
@@ -178,7 +194,6 @@ func (p *Proxy) startServer(serverConfig config.ServerConfig) (*server, error) {
 					return
 				default:
 					n, clientAddr, err := conn.ReadFromUDP(buffer)
-					log.Println("UDP ACCEPTED", clientAddr)
 					if err != nil {
 						if !isClosedError(err) {
 							log.Printf("Error reading from UDP: %v", err)
@@ -189,7 +204,7 @@ func (p *Proxy) startServer(serverConfig config.ServerConfig) (*server, error) {
 					p.shutdownWg.Add(1)
 					go func() {
 						defer p.shutdownWg.Done()
-						p.handleUDPPacket(conn, clientAddr, buffer[:n], selector)
+						s.handleUDPPacket(conn, clientAddr, buffer[:n], selector)
 					}()
 				}
 			}
@@ -202,7 +217,44 @@ func (p *Proxy) startServer(serverConfig config.ServerConfig) (*server, error) {
 	return s, nil
 }
 
-func (p *Proxy) handleTCPConnection(ctx context.Context, clientConn net.Conn, selector *config.RemoteAddrSelector) {
+func cpy(src io.Reader, dst io.Writer, middleware middleware.MiddlewareFunc) error {
+	buf := make([]byte, 4096)
+	for {
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			data := buf[:nr]
+			var err error
+			if middleware != nil {
+				data, err = middleware(data)
+				if err != nil {
+					return err
+				}
+			}
+			nw, ew := dst.Write(data)
+			if nw < 0 || len(data) < nw {
+				nw = 0
+				if ew == nil {
+					ew = io.ErrShortWrite
+				}
+			}
+			if ew != nil {
+				return ew
+			}
+			if len(data) != nw {
+				return io.ErrShortWrite
+			}
+		}
+		if er != nil {
+			if er != io.EOF {
+				return er
+			}
+			break
+		}
+	}
+	return nil
+}
+
+func (p *server) handleTCPConnection(ctx context.Context, clientConn net.Conn, selector *config.RemoteAddrSelector) {
 	defer clientConn.Close()
 
 	remoteAddr := selector.GetNext()
@@ -213,25 +265,51 @@ func (p *Proxy) handleTCPConnection(ctx context.Context, clientConn net.Conn, se
 	}
 	defer remoteConn.Close()
 
-	// Create bidirectional copy with context
+	log.Println(p, "SERVER")
+	clientToRemote := func(data []byte) ([]byte, error) {
+		for _, m := range p.ClientToRemoteMiddlewares {
+			var err error
+			log.Println("ClientToRemoteMiddleware", string(data))
+			data, err = m.Process(data, map[string]interface{}{
+				"remote": remoteAddr,
+				"client": clientConn.LocalAddr(),
+			})
+			log.Println("ClientToRemoteMiddleware", string(data))
+			if err != nil {
+				return nil, err
+			}
+		}
+		return data, nil
+	}
+
+	remoteToClient := func(data []byte) ([]byte, error) {
+		for _, m := range p.RemoteToClientMiddlewares {
+			var err error
+			data, err = m.Process(data, map[string]interface{}{
+				"remote": remoteAddr,
+				"client": clientConn.LocalAddr(),
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+		return data, nil
+	}
+
 	done := make(chan struct{})
 	go func() {
-		io.Copy(remoteConn, clientConn)
+		cpy(remoteConn, clientConn, remoteToClient)
 		close(done)
 	}()
 
-	io.Copy(clientConn, remoteConn)
+	cpy(clientConn, remoteConn, clientToRemote)
 	select {
 	case <-done:
-		{
-		}
 	case <-ctx.Done():
-		{
-		}
 	}
 }
 
-func (p *Proxy) handleUDPPacket(serverConn *net.UDPConn, clientAddr *net.UDPAddr, data []byte, selector *config.RemoteAddrSelector) {
+func (p *server) handleUDPPacket(serverConn *net.UDPConn, clientAddr *net.UDPAddr, data []byte, selector *config.RemoteAddrSelector) {
 	remoteAddr := selector.GetNext()
 	remoteConn, err := net.Dial("udp", remoteAddr)
 	if err != nil {
@@ -265,5 +343,5 @@ func isClosedError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return err == io.EOF || errors.Is(err,net.ErrClosed) || err == syscall.EPIPE
+	return err == io.EOF || errors.Is(err, net.ErrClosed) || err == syscall.EPIPE
 }

@@ -1,17 +1,27 @@
 servers:
-  - listen_addr: "localhost:8080"
-    protocol: "tcp"
+  - listen_addr: "localhost:8081"
+    protocol: "udp"
     remote_addrs:
       - "localhost:3000"
       - "localhost:3001"
     load_balancing_strategy: "round_robin"
   
-  - listen_addr: "localhost:8081"
-    protocol: "udp"
+  - listen_addr: "localhost:8080"
+    protocol: "http"
     remote_addrs:
       - "localhost:3002"
       - "localhost:3003"
     load_balancing_strategy: "random"
+    inbound_middlewares:
+      - logging:
+        path: "./middlewares/log.monk"
+        variables:
+          key: "value"
+    outbound_middlewares:
+      - logging:
+        path: "./middlewares/log.monk"
+        variables:
+          key: "value"
   
   - listen_addr: "localhost:8082"
     protocol: "http"
