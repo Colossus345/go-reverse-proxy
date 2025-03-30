@@ -217,7 +217,7 @@ func (p *Proxy) startServer(serverConfig config.ServerConfig) (*server, error) {
 	return s, nil
 }
 
-func cpy(src io.Reader, dst io.Writer, middleware middleware.MiddlewareFunc) error {
+func pipe(src io.Reader, dst io.Writer, middleware middleware.MiddlewareFunc) error {
 	buf := make([]byte, 4096)
 	for {
 		nr, er := src.Read(buf)
@@ -298,11 +298,11 @@ func (p *server) handleTCPConnection(ctx context.Context, clientConn net.Conn, s
 
 	done := make(chan struct{})
 	go func() {
-		cpy(remoteConn, clientConn, remoteToClient)
+		pipe(remoteConn, clientConn, remoteToClient)
 		close(done)
 	}()
 
-	cpy(clientConn, remoteConn, clientToRemote)
+	pipe(clientConn, remoteConn, clientToRemote)
 	select {
 	case <-done:
 	case <-ctx.Done():
